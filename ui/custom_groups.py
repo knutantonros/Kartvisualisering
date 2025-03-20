@@ -188,7 +188,7 @@ def display_custom_groups_analysis(df, region_column, value_column, lan_gdf=None
         with col1:
             # Create a container with max width to control the map size
             with st.container():
-                # Create the map visualization with borders
+                # Create the map visualization without borders and patterns
                 fig = create_custom_groups_map(
                     df, 
                     lan_gdf, 
@@ -197,7 +197,7 @@ def display_custom_groups_analysis(df, region_column, value_column, lan_gdf=None
                     st.session_state.get('color_scheme', 'viridis'),
                     width=st.session_state.get('width', 8),
                     height=st.session_state.get('height', 6),
-                    show_borders=True,
+                    show_borders=False,  # Set to False to remove borders
                     show_labels=False
                 )
                 
