@@ -48,7 +48,7 @@ def process_data(df, region_column, value_column):
         value_column (str): Name of the column containing values to visualize
         
     Returns:
-        tuple: Two processed DataFrames - one for län visualization and one for NUTS-2
+        tuple: Three processed DataFrames - one for län, one for NUTS-2, and one for Trafikverket regions
     """
     try:
         # Ensure the data is properly formatted
@@ -101,21 +101,25 @@ def process_data(df, region_column, value_column):
         # For NUTS-2, also drop rows with NaN in nuts2_region
         nuts2_data = processed_df.dropna(subset=['nuts2_region'])
         
+        # Process for Trafikverket regions
+        from utils.trafikverket_regions import process_trafikverket_data
+        trafikverket_data = process_trafikverket_data(processed_df, region_column, value_column)
+        
         # Aggregate by län and NUTS-2 if needed
         lan_data = processed_df.groupby('region_name')[value_column].mean().reset_index()
         nuts2_data = nuts2_data.groupby('nuts2_region')[value_column].mean().reset_index()
         
         # Handle empty dataframes
-        if len(lan_data) == 0 and len(nuts2_data) == 0:
+        if len(lan_data) == 0 and len(nuts2_data) == 0 and len(trafikverket_data) == 0:
             st.error("No valid data to visualize after processing. Check your input data.")
-            return pd.DataFrame(), pd.DataFrame()
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         
-        return lan_data, nuts2_data
+        return lan_data, nuts2_data, trafikverket_data
     except Exception as e:
         st.error(f"Error processing data: {e}")
         import traceback
         traceback.print_exc()
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 
 def identify_potential_region_columns(df):
