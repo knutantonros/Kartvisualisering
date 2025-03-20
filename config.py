@@ -52,6 +52,8 @@ NUTS2_MAPPING = {
     'Norrbotten': 'SE33 Övre Norrland'
 }
 
+TRAFIKVERKET_REGIONS_LIST = ["Syd", "Norr", "Mitt", "Öst", "Väst", "Sydöst"]
+
 # URL settings
 LAN_GEOJSON_URL = "https://raw.githubusercontent.com/okfse/sweden-geojson/master/swedish_regions.geojson"
 NUTS2_GEOJSON_URL = "https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/NUTS_RG_60M_2021_3035_LEVL_2.geojson"
