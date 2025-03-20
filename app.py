@@ -29,16 +29,16 @@ def main():
     setup_page()
     
     # Load GeoJSON data as GeoDataFrames
-    lan_gdf, nuts2_gdf = load_geojson()
+    lan_gdf, nuts2_gdf, trafikverket_gdf = load_geojson()
     
     # Render sidebar and get visualization status
-    visualization_ready = render_sidebar(lan_gdf, nuts2_gdf)
+    visualization_ready = render_sidebar(lan_gdf, nuts2_gdf, trafikverket_gdf)
     
     # Main content area - display info message if no data, otherwise show visualization
     if not visualization_ready:
         show_welcome_info()
     else:
-        # Check if we're in Län view or NUTS-2 view
+        # Check if we're in Län view or another view
         is_lan_view = st.session_state.get('map_type') == "Län"
         
         # If in Län view, show both tabs, otherwise just the standard visualization
@@ -47,7 +47,7 @@ def main():
             tab1, tab2 = st.tabs(["Standardvisualisering", "Egna regiongrupper"])
             
             with tab1:
-                show_visualization(lan_gdf, nuts2_gdf)
+                show_visualization(lan_gdf, nuts2_gdf, trafikverket_gdf)
             
             with tab2:
                 # UI for creating custom region groups
@@ -63,12 +63,11 @@ def main():
                         lan_gdf
                     )
         else:
-            # Just show the standard visualization for NUTS-2 view
-            show_visualization(lan_gdf, nuts2_gdf)
+            # Just show the standard visualization for NUTS-2 or Trafikverket view
+            show_visualization(lan_gdf, nuts2_gdf, trafikverket_gdf)
             
             # Add an info message explaining why custom groups aren't available
             st.info("Egna regiongrupper är endast tillgängliga i Län-vyn. Byt till Län-vyn i sidopanelen för att använda denna funktion.")
-
 
 if __name__ == "__main__":
     main()
