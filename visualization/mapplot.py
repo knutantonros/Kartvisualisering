@@ -13,12 +13,13 @@ import numpy as np
 import traceback
 from utils.geo_utils import fig_to_base64
 from shapely.ops import unary_union
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import MultiPolygon, Polygon, LineString
 
 
-def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, width=8, height=6, is_nuts2=False):
+def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, width=8, height=6, 
+                         is_nuts2=False, is_trafikverket=False):
     """
-    Create a choropleth map of Sweden using matplotlib with NUTS-2 and Län support.
+    Create a choropleth map of Sweden using matplotlib with NUTS-2, Län, and Trafikverket region support.
     
     Args:
         data (pd.DataFrame): DataFrame with the data to visualize
@@ -29,6 +30,7 @@ def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, w
         width (int): Width of the figure in inches
         height (int): Height of the figure in inches
         is_nuts2 (bool): Whether the visualization is for NUTS-2 regions
+        is_trafikverket (bool): Whether the visualization is for Trafikverket regions
         
     Returns:
         matplotlib.figure.Figure: The created map figure
@@ -65,6 +67,9 @@ def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, w
                 else:
                     st.error(f"No matches found between NUTS-2 regions in data and GeoJSON.")
                     return None
+        elif is_trafikverket:
+            # For Trafikverket regions, merge on the region name
+            merged_gdf = gdf.merge(data, left_on='name', right_on=location_col, how='inner')
         else:
             # For län, merge as before
             merged_gdf = gdf.merge(data, left_on='name', right_on=location_col, how='inner')
@@ -89,15 +94,47 @@ def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, w
             st.warning(f"Color scheme '{color_scheme}' not found, using 'viridis' instead.")
             cmap = plt.get_cmap('viridis')
         
-        # Plot the regions with white border lines
-        merged_gdf.plot(
-            column=value_column, 
-            cmap=cmap, 
-            linewidth=1,
-            ax=ax, 
-            edgecolor='white',
-            norm=norm
-        )
+        # Add the map title based on visualization type
+        title = "Län i Sverige"
+        if is_nuts2:
+            title = "NUTS-2 Regioner i Sverige"
+        elif is_trafikverket:
+            title = "Trafikverket Regioner i Sverige"
+        
+        plt.title(title, fontsize=14, pad=20)
+        
+        # For Trafikverket regions, treat all regions the same
+        if is_trafikverket:
+            # Plot all regions without borders
+            merged_gdf.plot(
+                column=value_column, 
+                cmap=cmap, 
+                linewidth=0,  # No borders
+                ax=ax, 
+                edgecolor='none',  # No borders
+                norm=norm
+            )
+            
+            # Add text labels in the center of each region
+            for idx, row in merged_gdf.iterrows():
+                centroid = row['geometry'].centroid
+                text = ax.text(
+                    centroid.x, centroid.y, 
+                    row['name'], 
+                    ha='center', va='center',
+                    fontsize=12, fontweight='bold',
+                    bbox=dict(facecolor='white', alpha=0.7, boxstyle='round,pad=0.3')
+                )
+        else:
+            # For län and NUTS-2, plot with borders
+            merged_gdf.plot(
+                column=value_column, 
+                cmap=cmap, 
+                linewidth=1,
+                ax=ax, 
+                edgecolor='white',
+                norm=norm
+            )
         
         # Clean up the plot
         ax.set_axis_off()
@@ -120,9 +157,9 @@ def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, w
         return None
 
 
-def create_custom_groups_map(data, gdf, custom_groups, value_column, color_scheme, width=8, height=6, show_borders=True, show_labels=False):
+def create_custom_groups_map(data, gdf, custom_groups, value_column, color_scheme, width=8, height=6, show_borders=False, show_labels=False):
     """
-    Create a map showing custom region groups with pattern fills for each group.
+    Create a map showing custom region groups without pattern fills.
     
     Args:
         data (pd.DataFrame): DataFrame with the data to visualize
@@ -132,17 +169,13 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
         color_scheme (str): Matplotlib colormap name to use
         width (int): Width of the figure in inches
         height (int): Height of the figure in inches
-        show_borders (bool): Whether to show borders between groups
+        show_borders (bool): Whether to show borders between groups (default False)
         show_labels (bool): Whether to show labels in the map
         
     Returns:
         matplotlib.figure.Figure: The created map figure
     """
     try:
-        # Define pattern styles for each group
-        # These are matplotlib hatch patterns
-        pattern_styles = ['////', '....', 'xxxx', 'oooo', '++++', '||||', '----', '\\\\\\\\']
-        
         # Create a figure with appropriate size
         fig, ax = plt.subplots(1, 1, figsize=(width, height), facecolor='white')
         
@@ -180,13 +213,7 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
         # Create legend patches
         legend_handles = []
         
-        # Assign a pattern to each group
-        pattern_mapping = {}
-        for i, group_name in enumerate(custom_groups.keys()):
-            pattern_index = i % len(pattern_styles)
-            pattern_mapping[group_name] = pattern_styles[pattern_index]
-        
-        # Plot each group of regions with pattern fills and collect legend handles
+        # Plot each group of regions with solid fills (no patterns) and collect legend handles
         for i, (group_name, regions) in enumerate(custom_groups.items()):
             if not regions:
                 continue
@@ -198,14 +225,10 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
             else:
                 color = cmap(norm(value))
             
-            # Get pattern for this group
-            pattern = pattern_mapping[group_name]
-            
-            # Create a patch for the legend
+            # Create a patch for the legend (no hatching)
             legend_patch = mpatches.Patch(
                 facecolor=color, 
-                edgecolor='black',
-                hatch=pattern,
+                edgecolor='black' if show_borders else 'none',
                 label=group_name
             )
             legend_handles.append(legend_patch)
@@ -213,13 +236,12 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
             # Get regions for this group
             group_regions = gdf[gdf['name'].isin(regions)]
             
-            # Plot with GeoPandas (this handles both Polygon and MultiPolygon)
+            # Plot with GeoPandas (no hatching, no borders)
             group_regions.plot(
                 ax=ax,
                 color=color,
-                edgecolor='white' if show_borders else 'none',
-                linewidth=1.5,
-                hatch=pattern,
+                edgecolor='none',  # Always set to 'none' to remove borders
+                linewidth=0,
                 alpha=0.9
             )
         
@@ -246,7 +268,7 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
                         ha='center', va='center',
                         bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.3')
                     )
-                    # Add white outline to text for better visibility against patterns
+                    # Add white outline to text for better visibility
                     text.set_path_effects([
                         path_effects.Stroke(linewidth=2, foreground='white'),
                         path_effects.Normal()
@@ -261,7 +283,7 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
         cbar = fig.colorbar(sm, ax=ax, shrink=0.6, pad=0.02)
         cbar.set_label(value_column)
         
-        # Add a legend with the patterns
+        # Add a legend with the colors (no patterns)
         if legend_handles:
             ax.legend(
                 handles=legend_handles,
@@ -283,16 +305,19 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
         return None
 
 
-def display_visualization(lan_data, nuts2_data, lan_gdf, nuts2_gdf, map_type, value_column, color_scheme, width=8, height=6):
+def display_visualization(lan_data, nuts2_data, trafikverket_data, lan_gdf, nuts2_gdf, trafikverket_gdf, 
+                         map_type, value_column, color_scheme, width=8, height=6):
     """
     Create and display the visualization with data summary and download options.
     
     Args:
         lan_data (pd.DataFrame): DataFrame with län-level data
         nuts2_data (pd.DataFrame): DataFrame with NUTS-2 level data
+        trafikverket_data (pd.DataFrame): DataFrame with Trafikverket region data
         lan_gdf (gpd.GeoDataFrame): GeoDataFrame with län boundaries
         nuts2_gdf (gpd.GeoDataFrame): GeoDataFrame with NUTS-2 boundaries
-        map_type (str): Type of map to display ("Län" or "NUTS-2 Regioner")
+        trafikverket_gdf (gpd.GeoDataFrame): GeoDataFrame with Trafikverket boundaries
+        map_type (str): Type of map to display ("Län", "NUTS-2 Regioner", or "Trafikverket Regioner")
         value_column (str): Name of the column containing values to visualize
         color_scheme (str): Matplotlib colormap name to use
         width (int): Width of the figure in inches
@@ -303,15 +328,22 @@ def display_visualization(lan_data, nuts2_data, lan_gdf, nuts2_gdf, map_type, va
         
         # Determine which data to use
         is_nuts2 = False
+        is_trafikverket = False
+        
         if map_type == "Län" and not lan_data.empty:
             gdf = lan_gdf
             data = lan_data
             location_col = 'region_name'
-        elif not nuts2_data.empty:
+        elif map_type == "NUTS-2 Regioner" and not nuts2_data.empty:
             gdf = nuts2_gdf
             data = nuts2_data
             location_col = 'nuts2_region'
             is_nuts2 = True
+        elif map_type == "Trafikverket Regioner" and not trafikverket_data.empty:
+            gdf = trafikverket_gdf
+            data = trafikverket_data
+            location_col = 'trafikverket_region'
+            is_trafikverket = True
         else:
             st.error("Inga data tillgängliga för visualisering.")
             return
@@ -319,7 +351,8 @@ def display_visualization(lan_data, nuts2_data, lan_gdf, nuts2_gdf, map_type, va
         # Use a container with max width to control the map size
         with st.container():
             # Create the matplotlib visualization
-            fig = create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, width, height, is_nuts2)
+            fig = create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, width, height, 
+                                        is_nuts2=is_nuts2, is_trafikverket=is_trafikverket)
             
             if fig:
                 # Display the map in Streamlit with a set width
@@ -356,7 +389,7 @@ def display_visualization(lan_data, nuts2_data, lan_gdf, nuts2_gdf, map_type, va
                 st.download_button(
                     label=f"Ladda ner {map_type}-data som CSV",
                     data=csv,
-                    file_name=f"{'lan' if map_type == 'Län' else 'nuts2'}_bearbetade_data.csv",
+                    file_name=f"{'lan' if map_type == 'Län' else 'nuts2' if map_type == 'NUTS-2 Regioner' else 'trafikverket'}_bearbetade_data.csv",
                     mime="text/csv",
                 )
     except Exception as e:
