@@ -8,13 +8,14 @@ from utils.data_utils import create_sample_data, identify_potential_region_colum
 from config import COLOR_SCHEMES, SIZE_PRESETS
 
 
-def render_sidebar(lan_gdf, nuts2_gdf):
+def render_sidebar(lan_gdf, nuts2_gdf, trafikverket_gdf):
     """
     Render the sidebar components and handle data processing.
     
     Args:
         lan_gdf (gpd.GeoDataFrame): GeoDataFrame with län boundaries
         nuts2_gdf (gpd.GeoDataFrame): GeoDataFrame with NUTS-2 boundaries
+        trafikverket_gdf (gpd.GeoDataFrame): GeoDataFrame with Trafikverket region boundaries
         
     Returns:
         bool: Whether the visualization is ready to be displayed
@@ -59,12 +60,12 @@ def render_sidebar(lan_gdf, nuts2_gdf):
         
         # Only show these options if we have data
         if df is not None:
-            return render_visualization_options(df, lan_gdf, nuts2_gdf)
+            return render_visualization_options(df, lan_gdf, nuts2_gdf, trafikverket_gdf)
         
         return False
 
 
-def render_visualization_options(df, lan_gdf, nuts2_gdf):
+def render_visualization_options(df, lan_gdf, nuts2_gdf, trafikverket_gdf):
     """
     Render the visualization options in the sidebar and process data when requested.
     
@@ -72,6 +73,7 @@ def render_visualization_options(df, lan_gdf, nuts2_gdf):
         df (pd.DataFrame): DataFrame with the data to visualize
         lan_gdf (gpd.GeoDataFrame): GeoDataFrame with län boundaries
         nuts2_gdf (gpd.GeoDataFrame): GeoDataFrame with NUTS-2 boundaries
+        trafikverket_gdf (gpd.GeoDataFrame): GeoDataFrame with Trafikverket region boundaries
         
     Returns:
         bool: Whether the visualization is ready to be displayed
@@ -99,8 +101,8 @@ def render_visualization_options(df, lan_gdf, nuts2_gdf):
     # Color scheme
     color_scheme = st.selectbox("Välj färgschema:", COLOR_SCHEMES)
     
-    # Map type selection
-    map_type = st.radio("Välj visualiseringsnivå:", ["Län", "NUTS-2 Regioner"])
+    # Map type selection - now including Trafikverket regions
+    map_type = st.radio("Välj visualiseringsnivå:", ["Län", "NUTS-2 Regioner", "Trafikverket Regioner"])
     
     # Map size controls
     st.subheader("Diagramyta")
@@ -123,12 +125,15 @@ def render_visualization_options(df, lan_gdf, nuts2_gdf):
     # Process button
     if st.button("Generera visualisering"):
         with st.spinner("Bearbetar data och skapar visualisering..."):
-            lan_data, nuts2_data = process_data(df, region_column, value_column)
+            lan_data, nuts2_data, trafikverket_data = process_data(df, region_column, value_column)
             
-            if not lan_data.empty or not nuts2_data.empty:
+            has_data = not lan_data.empty or not nuts2_data.empty or not trafikverket_data.empty
+            
+            if has_data:
                 # Store processed data and settings in session state
                 st.session_state['lan_data'] = lan_data
                 st.session_state['nuts2_data'] = nuts2_data
+                st.session_state['trafikverket_data'] = trafikverket_data
                 st.session_state['map_type'] = map_type
                 st.session_state['value_column'] = value_column
                 st.session_state['color_scheme'] = color_scheme
