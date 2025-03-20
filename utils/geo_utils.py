@@ -1,7 +1,7 @@
 """
 Utility functions for handling geographic data in the Swedish regions visualization app.
 """
-
+import pandas as pd
 import streamlit as st
 import geopandas as gpd
 import requests
@@ -9,10 +9,11 @@ import traceback
 from config import LAN_GEOJSON_URL, NUTS2_GEOJSON_URL, NUTS_ID_TO_NAME
 
 
+# Separate function for loading GeoJSON files, which can be cached
 @st.cache_data
-def load_geojson():
+def _load_base_geojson():
     """
-    Load GeoJSON files for Swedish län and NUTS-2 regions.
+    Load the base GeoJSON files for Swedish län and NUTS-2 regions.
     
     Returns:
         tuple: Two GeoDataFrames - one for län and one for NUTS-2 regions
@@ -54,6 +55,32 @@ def load_geojson():
         st.error(f"Error loading GeoJSON data: {e}")
         traceback.print_exc()
         return None, None
+
+
+def load_geojson():
+    """
+    Load GeoJSON files and create Trafikverket regions.
+    
+    Returns:
+        tuple: Three GeoDataFrames - one for län, one for NUTS-2 regions, and one for Trafikverket regions
+    """
+    try:
+        # Load the base GeoJSON files using the cached function
+        lan_gdf, nuts2_gdf = _load_base_geojson()
+        
+        if lan_gdf is not None and nuts2_gdf is not None:
+            # Create Trafikverket regions from län GeoDataFrame
+            from utils.trafikverket_regions import create_trafikverket_regions
+            trafikverket_gdf = create_trafikverket_regions(_input_gdf=lan_gdf)
+            
+            return lan_gdf, nuts2_gdf, trafikverket_gdf
+        else:
+            return None, None, None
+    
+    except Exception as e:
+        st.error(f"Error preparing GeoJSON data: {e}")
+        traceback.print_exc()
+        return None, None, None
 
 
 def fig_to_base64(fig):
