@@ -290,7 +290,7 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
                 loc='lower right', 
                 framealpha=0.7, 
                 frameon=True,
-                title="Regiongrupper"
+                title=""
             )
         
         # Tight layout to remove excess whitespace
