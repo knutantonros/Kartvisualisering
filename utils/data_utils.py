@@ -1,107 +1,152 @@
 """
-Utility functions for handling geographic data in the Swedish regions visualization app.
+Utility functions for data processing in the Swedish regions visualization app.
 """
+
 import pandas as pd
 import streamlit as st
-import geopandas as gpd
-import requests
-import traceback
-from config import LAN_GEOJSON_URL, NUTS2_GEOJSON_URL, NUTS_ID_TO_NAME
+from config import LAN_MAPPING, NUTS2_MAPPING
 
-
-# Separate function for loading GeoJSON files, which can be cached
-@st.cache_data
-def _load_base_geojson():
+def create_sample_data():
     """
-    Load the base GeoJSON files for Swedish län and NUTS-2 regions.
+    Create sample datasets for demonstration purposes.
     
     Returns:
-        tuple: Two GeoDataFrames - one for län and one for NUTS-2 regions
+        tuple: Two DataFrames - one with län codes and another with län names
     """
-    try:
-        # Load Swedish län GeoJSON
-        lan_response = requests.get(LAN_GEOJSON_URL)
-        lan_geojson = lan_response.json()
-        lan_gdf = gpd.GeoDataFrame.from_features(lan_geojson["features"])
-        
-        # Download Eurostat NUTS-2 GeoJSON for Sweden
-        nuts2_response = requests.get(NUTS2_GEOJSON_URL)
-        nuts2_geojson = nuts2_response.json()
-        
-        # Filter for Swedish NUTS-2 regions
-        swedish_nuts2_features = [
-            feature for feature in nuts2_geojson["features"] 
-            if feature["properties"]["NUTS_ID"].startswith("SE")
-        ]
-        
-        # Convert to GeoDataFrame
-        nuts2_gdf = gpd.GeoDataFrame.from_features(swedish_nuts2_features)
-        
-        # Check and set the name column correctly
-        if 'NUTS_NAME' in nuts2_gdf.columns:
-            nuts2_gdf['name'] = nuts2_gdf['NUTS_NAME']
-        elif 'NAME' in nuts2_gdf.columns:
-            nuts2_gdf['name'] = nuts2_gdf['NAME']
-        else:
-            # If neither column exists, create a mapping from NUTS_ID to our format
-            if 'NUTS_ID' in nuts2_gdf.columns:
-                nuts2_gdf['name'] = nuts2_gdf['NUTS_ID'].map(NUTS_ID_TO_NAME)
-            else:
-                st.warning("Could not find appropriate columns in NUTS-2 GeoJSON. Visualization may not work correctly.")
-        
-        return lan_gdf, nuts2_gdf
+    lan_codes = list(LAN_MAPPING.keys())
+    lan_names = list(LAN_MAPPING.values())
     
-    except Exception as e:
-        st.error(f"Error loading GeoJSON data: {e}")
-        traceback.print_exc()
-        return None, None
-
-
-def load_geojson():
-    """
-    Load GeoJSON files and create Trafikverket regions.
+    # Create sample with län codes
+    sample_codes_df = pd.DataFrame({
+        'lan_kod': lan_codes,
+        'befolkning': [2396599, 395026, 299401, 468387, 365010, 201469, 245446, 
+                      61001, 158453, 1402425, 339367, 1744859, 282414, 304805, 
+                      278967, 287966, 287502, 244193, 132054, 274154, 249693],
+        'bnp_per_capita': [650000, 400000, 380000, 390000, 420000, 370000, 360000,
+                          380000, 350000, 420000, 390000, 450000, 350000, 380000,
+                          390000, 360000, 350000, 370000, 380000, 400000, 410000]
+    })
     
-    Returns:
-        tuple: Three GeoDataFrames - one for län, one for NUTS-2 regions, and one for Trafikverket regions
-    """
-    try:
-        # Load the base GeoJSON files using the cached function
-        lan_gdf, nuts2_gdf = _load_base_geojson()
-        
-        if lan_gdf is not None and nuts2_gdf is not None:
-            # Create Trafikverket regions from län GeoDataFrame
-            from utils.trafikverket_regions import create_trafikverket_regions
-            trafikverket_gdf = create_trafikverket_regions(_input_gdf=lan_gdf)
-            
-            return lan_gdf, nuts2_gdf, trafikverket_gdf
-        else:
-            return None, None, None
+    # Create sample with län names
+    sample_names_df = pd.DataFrame({
+        'lan_namn': lan_names,
+        'arbetslöshet': [6.2, 7.1, 8.3, 7.9, 6.5, 8.2, 7.8, 6.9, 8.5, 
+                         9.2, 6.7, 7.0, 7.6, 7.4, 8.1, 7.3, 9.0, 8.4, 
+                         7.2, 6.8, 7.7]
+    })
     
-    except Exception as e:
-        st.error(f"Error preparing GeoJSON data: {e}")
-        traceback.print_exc()
-        return None, None, None
+    return sample_codes_df, sample_names_df
 
 
-def fig_to_base64(fig):
+def process_data(df, region_column, value_column):
     """
-    Convert a matplotlib figure to base64 string for embedding.
+    Process the uploaded or sample data to prepare it for visualization.
     
     Args:
-        fig (matplotlib.figure.Figure): Matplotlib figure to convert
+        df (pd.DataFrame): Input dataframe with region and value data
+        region_column (str): Name of the column containing region identifiers
+        value_column (str): Name of the column containing values to visualize
         
     Returns:
-        tuple: Base64 encoded string and raw bytes of the image
+        tuple: Three processed DataFrames - one for län, one for NUTS-2, and one for Trafikverket regions
     """
-    from io import BytesIO
-    import base64
+    try:
+        # Ensure the data is properly formatted
+        processed_df = df.copy()
+        
+        # Convert region column to string
+        processed_df[region_column] = processed_df[region_column].astype(str)
+        
+        # Handle län codes with leading zeros that might have been dropped
+        # Add leading zero if it's a one-digit number
+        processed_df[region_column] = processed_df[region_column].apply(
+            lambda x: '0' + x if x.isdigit() and len(x) == 1 else x
+        )
+        
+        # Mapping strategy
+        def map_to_region(input_region):
+            # First try direct mapping of codes to läns
+            if input_region in LAN_MAPPING:
+                return LAN_MAPPING[input_region]
+            
+            # If not a code, check if it's already a län name
+            if input_region in LAN_MAPPING.values():
+                return input_region
+            
+            # If not a code or län name, try to match case-insensitively
+            for code, name in LAN_MAPPING.items():
+                if input_region.lower() == name.lower():
+                    return name
+            
+            # If no match found, return the original input
+            return input_region
+        
+        # Map to region names
+        processed_df['region_name'] = processed_df[region_column].apply(map_to_region)
+        
+        # Add NUTS-2 region
+        processed_df['nuts2_region'] = processed_df['region_name'].map(NUTS2_MAPPING)
+        
+        # Handle numeric data - ensure value_column is numeric
+        try:
+            processed_df[value_column] = pd.to_numeric(processed_df[value_column], errors='coerce')
+            if processed_df[value_column].isna().any():
+                st.warning(f"Some values in column '{value_column}' could not be converted to numbers and were set to NaN.")
+        except Exception as e:
+            st.error(f"Error converting '{value_column}' to numeric value: {e}")
+        
+        # Drop rows with NaN in necessary columns
+        processed_df = processed_df.dropna(subset=['region_name', value_column])
+        
+        # For NUTS-2, also drop rows with NaN in nuts2_region
+        nuts2_data = processed_df.dropna(subset=['nuts2_region'])
+        
+        # Process for Trafikverket regions
+        from utils.trafikverket_regions import process_trafikverket_data
+        trafikverket_data = process_trafikverket_data(processed_df, region_column, value_column)
+        
+        # Aggregate by län and NUTS-2 if needed
+        lan_data = processed_df.groupby('region_name')[value_column].mean().reset_index()
+        nuts2_data = nuts2_data.groupby('nuts2_region')[value_column].mean().reset_index()
+        
+        # Handle empty dataframes
+        if len(lan_data) == 0 and len(nuts2_data) == 0 and len(trafikverket_data) == 0:
+            st.error("No valid data to visualize after processing. Check your input data.")
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        
+        return lan_data, nuts2_data, trafikverket_data
+    except Exception as e:
+        st.error(f"Error processing data: {e}")
+        import traceback
+        traceback.print_exc()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+
+def identify_potential_region_columns(df):
+    """
+    Identify columns that might contain region data based on naming conventions.
     
-    buf = BytesIO()
-    # Use white background instead of light gray
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', 
-                facecolor='white', transparent=False, pad_inches=0)
-    buf.seek(0)
-    img_bytes = buf.getvalue()
-    img_base64 = base64.b64encode(img_bytes).decode()
-    buf.close()
-    return img_base64, img_bytes
+    Args:
+        df (pd.DataFrame): Input dataframe
+        
+    Returns:
+        list: List of column names that might contain region data
+    """
+    possible_region_cols = [col for col in df.columns if any(
+        x in col.lower() for x in ['lan', 'län', 'region', 'county', 'code', 'kod', 'namn']
+    )]
+    
+    return possible_region_cols or [df.columns[0]]
+
+
+def get_numeric_columns(df):
+    """
+    Get numeric columns from a dataframe.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        
+    Returns:
+        list: List of numeric column names
+    """
+    return df.select_dtypes(include=['number']).columns.tolist()
