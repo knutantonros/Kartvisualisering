@@ -157,7 +157,8 @@ def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, w
         return None
 
 
-def create_custom_groups_map(data, gdf, custom_groups, value_column, color_scheme, width=8, height=6, show_borders=False, show_labels=False):
+def create_custom_groups_map(data, gdf, custom_groups, value_column, color_scheme, width=8, height=6, 
+                           show_borders=False, show_labels=False, use_fixed_scale=False, scale_min=0, scale_max=100):
     """
     Create a map showing custom region groups without pattern fills.
     
@@ -171,6 +172,9 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
         height (int): Height of the figure in inches
         show_borders (bool): Whether to show borders between groups (default False)
         show_labels (bool): Whether to show labels in the map
+        use_fixed_scale (bool): Whether to use a fixed scale for the legend
+        scale_min (float): Minimum value for the scale when use_fixed_scale is True
+        scale_max (float): Maximum value for the scale when use_fixed_scale is True
         
     Returns:
         matplotlib.figure.Figure: The created map figure
@@ -204,7 +208,11 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
         
         # Normalize the data for coloring
         values = [v for v in group_values.values() if not np.isnan(v)]
-        if values:
+        
+        # Use fixed scale if requested, otherwise use data-dependent scale
+        if use_fixed_scale:
+            norm = mcolors.Normalize(vmin=scale_min, vmax=scale_max)
+        elif values:
             vmin, vmax = min(values), max(values)
             norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
         else:
@@ -303,7 +311,6 @@ def create_custom_groups_map(data, gdf, custom_groups, value_column, color_schem
         st.error(f"Error creating custom groups map: {e}")
         traceback.print_exc()
         return None
-
 
 def display_visualization(lan_data, nuts2_data, trafikverket_data, lan_gdf, nuts2_gdf, trafikverket_gdf, 
                          map_type, value_column, color_scheme, width=8, height=6):
