@@ -95,13 +95,13 @@ def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, w
             cmap = plt.get_cmap('viridis')
         
         # Add the map title based on visualization type
-        title = "Län i Sverige"
-        if is_nuts2:
-            title = "NUTS-2 Regioner i Sverige"
-        elif is_trafikverket:
-            title = "Trafikverket Regioner i Sverige"
+        #title = "Län i Sverige"
+        #if is_nuts2:
+            #title = "NUTS-2 Regioner i Sverige"
+        #elif is_trafikverket:
+            #title = "Trafikverket Regioner i Sverige"
         
-        plt.title(title, fontsize=14, pad=20)
+        #plt.title(title, fontsize=14, pad=20)
         
         # For Trafikverket regions, treat all regions the same
         if is_trafikverket:
@@ -123,7 +123,7 @@ def create_matplotlib_map(data, gdf, location_col, value_column, color_scheme, w
                     row['name'], 
                     ha='center', va='center',
                     fontsize=12, fontweight='bold',
-                    bbox=dict(facecolor='white', alpha=0.7, boxstyle='round,pad=0.3')
+                    bbox=dict(facecolor='white', alpha=1, boxstyle='round,pad=0.3')
                 )
         else:
             # For län and NUTS-2, plot with borders
