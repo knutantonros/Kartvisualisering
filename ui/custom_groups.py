@@ -183,6 +183,20 @@ def display_custom_groups_analysis(df, region_column, value_column, lan_gdf=None
     if lan_gdf is not None:
         st.subheader("Karta över egna regiongrupper")
         
+        # Add controls for scale settings
+        with st.expander("Skalainställningar", expanded=False):
+            use_fixed_scale = st.checkbox("Använd fast skala", value=False)
+            
+            scale_min = 0
+            scale_max = 100
+            
+            if use_fixed_scale:
+                col1, col2 = st.columns(2)
+                with col1:
+                    scale_min = st.number_input("Minimivärde", value=0.0, step=1.0)
+                with col2:
+                    scale_max = st.number_input("Maximivärde", value=100.0, step=1.0)
+        
         col1, col2 = st.columns([3, 1])
         
         with col1:
@@ -198,7 +212,10 @@ def display_custom_groups_analysis(df, region_column, value_column, lan_gdf=None
                     width=st.session_state.get('width', 8),
                     height=st.session_state.get('height', 6),
                     show_borders=False,  # Set to False to remove borders
-                    show_labels=False
+                    show_labels=False,
+                    use_fixed_scale=use_fixed_scale,
+                    scale_min=scale_min,
+                    scale_max=scale_max
                 )
                 
                 if fig:
