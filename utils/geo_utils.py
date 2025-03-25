@@ -97,9 +97,9 @@ def fig_to_base64(fig):
     import base64
     
     buf = BytesIO()
-    # Use more compatible parameters without optimize/compression
+    # Use white background instead of light gray
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', 
-                facecolor='#E6E6E6', transparent=False, pad_inches=0)
+                facecolor='white', transparent=False, pad_inches=0)
     buf.seek(0)
     img_bytes = buf.getvalue()
     img_base64 = base64.b64encode(img_bytes).decode()
