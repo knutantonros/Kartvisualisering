@@ -1,7 +1,6 @@
 """
 Configuration settings and constants for the Swedish regions visualization app.
 """
-
 # Define the mapping between län codes and names
 LAN_MAPPING = {
     '01': 'Stockholm',
@@ -75,8 +74,10 @@ APP_TITLE = "Visualiseringsverktyg för Svenska Regioner"
 APP_DESCRIPTION = "Ladda upp dina data och visualisera dem efter svenska län eller NUTS-2-regioner."
 APP_ABOUT = "En visualiseringsapp för svenska läns- och NUTS-2-data"
 
-# Color schemes
-COLOR_SCHEMES = ["viridis", "Blues", "Reds", "Greens", "YlOrRd", "Spectral", "plasma", "inferno", "magma", "cividis"]
+
+# Add this to update the COLOR_SCHEMES list:
+COLOR_SCHEMES = [
+    "viridis", "Blues", "Reds", "Greens", "YlOrRd"]
 
 # Size presets
 SIZE_PRESETS = {
