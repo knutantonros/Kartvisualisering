@@ -203,9 +203,15 @@ def display_custom_groups_analysis(df, region_column, value_column, lan_gdf=None
                 
                 if fig:
                     st.pyplot(fig, use_container_width=True)
-                else:
-                    st.info("Kunde inte skapa kartan. Kontrollera att regionerna finns i dina data.")
-        
+                    
+                    # Create download button for custom groups map
+                    from utils.geo_utils import fig_to_base64
+                    img_base64, img_bytes = fig_to_base64(fig)
+                    
+                    st.markdown("### Ladda ner karta")
+                    href = f'<a href="data:image/png;base64,{img_base64}" download="egna_regiongrupper.png" class="download-btn" style="display: inline-block; padding: 0.5rem 1rem; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; margin: 0.5rem 0;">⬇️ Ladda ner karta med egna regiongrupper</a>'
+                    st.markdown(href, unsafe_allow_html=True)
+                    
         with col2:
             st.write("Gruppinformation:")
             for group_name, regions in st.session_state.custom_groups.items():
